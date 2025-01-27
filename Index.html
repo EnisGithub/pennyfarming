@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earnings Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            margin-right: 10px;
+        }
+        input, select, button {
+            margin-right: 10px;
+            padding: 5px;
+        }
+        canvas {
+            max-width: 600px;
+            margin: 20px auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Earnings Tracker</h1>
+
+    <!-- Input Form -->
+    <form id="earnings-form">
+        <label for="date">Date:</label>
+        <input type="date" id="date" required>
+        
+        <label for="platform">Platform:</label>
+        <select id="platform" required>
+            <option value="Honeygain">Honeygain</option>
+            <option value="Pawns.app">Pawns.app</option>
+            <option value="PacketStream">PacketStream</option>
+            <option value="PacketShare">PacketShare</option>
+        </select>
+
+        <label for="amount">Earnings ($):</label>
+        <input type="number" id="amount" step="0.001" required>
+
+        <button type="submit">Add</button>
+    </form>
+
+    <!-- Charts -->
+    <div>
+        <canvas id="honeygainChart"></canvas>
+        <canvas id="pawnsChart"></canvas>
+        <canvas id="packetStreamChart"></canvas>
+        <canvas id="packetShareChart"></canvas>
+    </div>
+
+    <script>
+        // Load data from localStorage or initialize empty object
+        let earningsData = JSON.parse(localStorage.getItem("earningsData")) || {
+            "Honeygain": [],
+            "Pawns.app": [],
+            "PacketStream": [],
+            "PacketShare": []
+        };
+
+        // Initialize charts
+        const charts = {};
+
+        function createChart(platform, elementId) {
+            const ctx = document.getElementById(elementId).getContext("2d");
+            charts[platform] = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: `${platform} Earnings`,
+                        data: [],
+                        borderColor: "blue",
+                        backgroundColor: "rgba(0, 0, 255, 0.1)",
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: { display: true, text: "Date" }
+                        },
+                        y: {
+                            title: { display: true, text: "Earnings ($)" },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Create a chart for each platform
+        createChart("Honeygain", "honeygainChart");
+        createChart("Pawns.app", "pawnsChart");
+        createChart("PacketStream", "packetStreamChart");
+        createChart("PacketShare", "packetShareChart");
+
+        // Restore data to charts from localStorage
+        function restoreCharts() {
+            for (const platform in earningsData) {
+                updateChart(platform);
+            }
+        }
+
+        // Form Submission Handler
+        document.getElementById("earnings-form").addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const date = document.getElementById("date").value;
+            const platform = document.getElementById("platform").value;
+            const amount = parseFloat(document.getElementById("amount").value);
+
+            if (!date || !platform || isNaN(amount)) {
+                alert("Please fill in all fields correctly!");
+                return;
+            }
+
+            // Add data to the appropriate platform
+            earningsData[platform].push({ date, amount });
+
+            // Save to localStorage
+            localStorage.setItem("earningsData", JSON.stringify(earningsData));
+
+            // Update the chart
+            updateChart(platform);
+
+            // Reset the form
+            e.target.reset();
+        });
+
+        // Update Chart Function
+        function updateChart(platform) {
+            const chart = charts[platform];
+            const data = earningsData[platform];
+
+            chart.data.labels = data.map(entry => entry.date);
+            chart.data.datasets[0].data = data.map(entry => entry.amount);
+
+            chart.update();
+        }
+
+        // Restore charts on page load
+        restoreCharts();
+    </script>
+</body>
+</html>
