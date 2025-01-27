@@ -87,9 +87,15 @@
     </div>
 
     <!-- Individual Platform Charts -->
-    <div id="charts-container"></div>
+    <div id="charts-container">
+        <canvas id="honeygainChart"></canvas>
+        <canvas id="pawnsChart"></canvas>
+        <canvas id="packetStreamChart"></canvas>
+        <canvas id="packetShareChart"></canvas>
+    </div>
 
     <script>
+        // Earnings data structure
         let earningsData = JSON.parse(localStorage.getItem("earningsData")) || {
             "Honeygain": [],
             "Pawns.app": [],
@@ -97,20 +103,18 @@
             "PacketShare": []
         };
 
+        // Chart storage and colors
         const charts = {};
         const colors = ["#4CAF50", "#FFC107", "#03A9F4", "#E91E63", "#9C27B0", "#FF5722"];
         const pieChartData = { labels: [], datasets: [{ data: [], backgroundColor: colors }] };
 
+        // Pie chart initialization
         const pieChartCtx = document.getElementById("pieChart").getContext("2d");
         const pieChart = new Chart(pieChartCtx, { type: "pie", data: pieChartData });
 
-        // Create individual platform charts
-        function createChart(platform) {
-            const container = document.createElement("canvas");
-            container.id = `${platform.toLowerCase()}Chart`;
-            document.getElementById("charts-container").appendChild(container);
-
-            const ctx = container.getContext("2d");
+        // Create a line chart for each platform
+        function createChart(platform, elementId) {
+            const ctx = document.getElementById(elementId).getContext("2d");
             charts[platform] = new Chart(ctx, {
                 type: "line",
                 data: {
@@ -131,7 +135,7 @@
             });
         }
 
-        // Update the pie chart
+        // Update the pie chart with current data
         function updatePieChart() {
             pieChartData.labels = Object.keys(earningsData);
             pieChartData.datasets[0].data = Object.values(earningsData).map(
@@ -155,16 +159,7 @@
             chart.update();
         }
 
-        // Restore all data on page load
-        function initializeCharts() {
-            Object.keys(earningsData).forEach(platform => {
-                createChart(platform);
-                updateChart(platform);
-            });
-            updateTotalEarnings();
-            updatePieChart();
-        }
-
+        // Form submission handler
         document.getElementById("earnings-form").addEventListener("submit", function (e) {
             e.preventDefault();
             const date = document.getElementById("date").value;
@@ -184,6 +179,7 @@
             e.target.reset();
         });
 
+        // Delete all data
         document.getElementById("delete-btn").addEventListener("click", function () {
             if (confirm("Are you sure you want to delete all data?")) {
                 earningsData = { "Honeygain": [], "Pawns.app": [], "PacketStream": [], "PacketShare": [] };
@@ -198,17 +194,24 @@
             }
         });
 
+        // Dynamically add new platform
         document.getElementById("add-platform-btn").addEventListener("click", function () {
             const newPlatform = prompt("Enter the name of the new platform:");
             if (newPlatform && !earningsData[newPlatform]) {
                 earningsData[newPlatform] = [];
                 localStorage.setItem("earningsData", JSON.stringify(earningsData));
-                createChart(newPlatform);
+                const container = document.createElement("canvas");
+                container.id = `${newPlatform.toLowerCase()}Chart`;
+                document.getElementById("charts-container").appendChild(container);
+                createChart(newPlatform, container.id);
                 updatePieChart();
             }
         });
 
-        initializeCharts();
+        // Initialize charts and data
+        Object.keys(earningsData).forEach(platform => createChart(platform, `${platform.toLowerCase()}Chart`));
+        updateTotalEarnings();
+        updatePieChart();
     </script>
 </body>
 </html>
