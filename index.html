@@ -37,15 +37,29 @@
             margin: 20px auto;
             display: block;
         }
-        .summary, .controls {
+        .summary {
             margin-top: 20px;
             font-size: 1.2em;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
         }
         .delete-btn {
             background-color: red;
             color: white;
+            padding: 5px 10px;
             border: none;
-            padding: 10px;
+            border-radius: 5px;
             cursor: pointer;
         }
         .delete-btn:hover {
@@ -56,18 +70,13 @@
 <body>
     <h1>Earnings Tracker</h1>
 
-    <!-- Input Form -->
+    <!-- Form -->
     <form id="earnings-form">
         <label for="date">Date:</label>
         <input type="date" id="date" required>
         
         <label for="platform">Platform:</label>
-        <select id="platform" required>
-            <option value="Honeygain">Honeygain</option>
-            <option value="Pawns.app">Pawns.app</option>
-            <option value="PacketStream">PacketStream</option>
-            <option value="PacketShare">PacketShare</option>
-        </select>
+        <select id="platform" required></select>
 
         <label for="amount">Earnings ($):</label>
         <input type="number" id="amount" step="0.001" required>
@@ -75,46 +84,56 @@
         <button type="submit">Add</button>
     </form>
 
-    <div class="controls">
-        <button id="add-platform-btn">Add Platform</button>
-        <button id="delete-btn" class="delete-btn">Delete All Data</button>
-    </div>
+    <button id="add-platform-btn">Add Platform</button>
+    <button id="delete-btn" class="delete-btn">Delete All Data</button>
 
-    <!-- Summary Section -->
     <div class="summary">
         <h2>Total Earnings: $<span id="total-earnings">0.000</span></h2>
         <canvas id="pieChart"></canvas>
     </div>
 
-    <!-- Individual Platform Charts -->
-    <div id="charts-container">
-        <canvas id="honeygainChart"></canvas>
-        <canvas id="pawnsChart"></canvas>
-        <canvas id="packetStreamChart"></canvas>
-        <canvas id="packetShareChart"></canvas>
-    </div>
+    <table id="earnings-table">
+        <thead>
+            <tr>
+                <th>Platform</th>
+                <th>Date</th>
+                <th>Amount ($)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="charts-container"></div>
 
     <script>
-        // Earnings data structure
-        let earningsData = JSON.parse(localStorage.getItem("earningsData")) || {
-            "Honeygain": [],
-            "Pawns.app": [],
-            "PacketStream": [],
-            "PacketShare": []
-        };
-
-        // Chart storage and colors
+        const API_URL = "/api/earnings";
+        const API_ADD_PLATFORM = "/api/platforms";
+        let earningsData = {};
         const charts = {};
         const colors = ["#4CAF50", "#FFC107", "#03A9F4", "#E91E63", "#9C27B0", "#FF5722"];
         const pieChartData = { labels: [], datasets: [{ data: [], backgroundColor: colors }] };
 
-        // Pie chart initialization
         const pieChartCtx = document.getElementById("pieChart").getContext("2d");
         const pieChart = new Chart(pieChartCtx, { type: "pie", data: pieChartData });
 
-        // Create a line chart for each platform
-        function createChart(platform, elementId) {
-            const ctx = document.getElementById(elementId).getContext("2d");
+        async function fetchData() {
+            const response = await fetch(API_URL);
+            earningsData = await response.json();
+            updateTable();
+            Object.keys(earningsData).forEach(platform => {
+                if (!charts[platform]) createChart(platform);
+                updateChart(platform);
+            });
+            updatePieChart();
+            updateTotalEarnings();
+            populatePlatformSelect();
+        }
+
+        function createChart(platform) {
+            const container = document.createElement("canvas");
+            container.id = `${platform.toLowerCase()}Chart`;
+            document.getElementById("charts-container").appendChild(container);
+            const ctx = container.getContext("2d");
             charts[platform] = new Chart(ctx, {
                 type: "line",
                 data: {
@@ -135,22 +154,18 @@
             });
         }
 
-        // Update the pie chart with current data
-        function updatePieChart() {
-            pieChartData.labels = Object.keys(earningsData);
-            pieChartData.datasets[0].data = Object.values(earningsData).map(
-                platformData => platformData.reduce((sum, entry) => sum + entry.amount, 0)
-            );
-            pieChart.update();
+        function updateTable() {
+            const tbody = document.querySelector("#earnings-table tbody");
+            tbody.innerHTML = "";
+            Object.entries(earningsData).forEach(([platform, entries]) => {
+                entries.forEach(({ date, amount }) => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `<td>${platform}</td><td>${date}</td><td>${amount.toFixed(3)}</td>`;
+                    tbody.appendChild(row);
+                });
+            });
         }
 
-        // Update the total earnings display
-        function updateTotalEarnings() {
-            const total = Object.values(earningsData).flat().reduce((sum, entry) => sum + entry.amount, 0);
-            document.getElementById("total-earnings").textContent = total.toFixed(3);
-        }
-
-        // Update individual platform charts
         function updateChart(platform) {
             const chart = charts[platform];
             const data = earningsData[platform];
@@ -159,8 +174,25 @@
             chart.update();
         }
 
-        // Form submission handler
-        document.getElementById("earnings-form").addEventListener("submit", function (e) {
+        function updatePieChart() {
+            pieChartData.labels = Object.keys(earningsData);
+            pieChartData.datasets[0].data = Object.values(earningsData).map(
+                platformData => platformData.reduce((sum, entry) => sum + entry.amount, 0)
+            );
+            pieChart.update();
+        }
+
+        function updateTotalEarnings() {
+            const total = Object.values(earningsData).flat().reduce((sum, entry) => sum + entry.amount, 0);
+            document.getElementById("total-earnings").textContent = total.toFixed(3);
+        }
+
+        function populatePlatformSelect() {
+            const platformSelect = document.getElementById("platform");
+            platformSelect.innerHTML = Object.keys(earningsData).map(platform => `<option value="${platform}">${platform}</option>`).join("");
+        }
+
+        document.getElementById("earnings-form").addEventListener("submit", async function (e) {
             e.preventDefault();
             const date = document.getElementById("date").value;
             const platform = document.getElementById("platform").value;
@@ -171,47 +203,46 @@
                 return;
             }
 
+            await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ platform, date, amount })
+            });
+
             earningsData[platform].push({ date, amount });
-            localStorage.setItem("earningsData", JSON.stringify(earningsData));
+            updateTable();
             updateChart(platform);
-            updateTotalEarnings();
             updatePieChart();
+            updateTotalEarnings();
             e.target.reset();
         });
 
-        // Delete all data
-        document.getElementById("delete-btn").addEventListener("click", function () {
-            if (confirm("Are you sure you want to delete all data?")) {
-                earningsData = { "Honeygain": [], "Pawns.app": [], "PacketStream": [], "PacketShare": [] };
-                localStorage.removeItem("earningsData");
-                Object.keys(charts).forEach(platform => {
-                    charts[platform].data.labels = [];
-                    charts[platform].data.datasets[0].data = [];
-                    charts[platform].update();
-                });
-                updateTotalEarnings();
-                updatePieChart();
-            }
-        });
-
-        // Dynamically add new platform
-        document.getElementById("add-platform-btn").addEventListener("click", function () {
+        document.getElementById("add-platform-btn").addEventListener("click", async function () {
             const newPlatform = prompt("Enter the name of the new platform:");
-            if (newPlatform && !earningsData[newPlatform]) {
-                earningsData[newPlatform] = [];
-                localStorage.setItem("earningsData", JSON.stringify(earningsData));
-                const container = document.createElement("canvas");
-                container.id = `${newPlatform.toLowerCase()}Chart`;
-                document.getElementById("charts-container").appendChild(container);
-                createChart(newPlatform, container.id);
-                updatePieChart();
-            }
+            if (!newPlatform || earningsData[newPlatform]) return alert("Invalid or existing platform!");
+
+            await fetch(API_ADD_PLATFORM, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ platform: newPlatform })
+            });
+
+            earningsData[newPlatform] = [];
+            populatePlatformSelect();
+            createChart(newPlatform);
         });
 
-        // Initialize charts and data
-        Object.keys(earningsData).forEach(platform => createChart(platform, `${platform.toLowerCase()}Chart`));
-        updateTotalEarnings();
-        updatePieChart();
+        document.getElementById("delete-btn").addEventListener("click", async function () {
+            if (!confirm("Are you sure you want to delete all data?")) return;
+            await fetch(API_URL, { method: "DELETE" });
+            earningsData = {};
+            updateTable();
+            updatePieChart();
+            updateTotalEarnings();
+            document.getElementById("charts-container").innerHTML = "";
+        });
+
+        fetchData();
     </script>
 </body>
 </html>
