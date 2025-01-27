@@ -95,6 +95,7 @@
     </div>
 
     <script>
+        // Earnings data structure
         let earningsData = JSON.parse(localStorage.getItem("earningsData")) || {
             "Honeygain": [],
             "Pawns.app": [],
@@ -102,37 +103,54 @@
             "PacketShare": []
         };
 
+        // Chart storage and colors
         const charts = {};
         const colors = ["#4CAF50", "#FFC107", "#03A9F4", "#E91E63", "#9C27B0", "#FF5722"];
         const pieChartData = { labels: [], datasets: [{ data: [], backgroundColor: colors }] };
 
+        // Pie chart initialization
         const pieChartCtx = document.getElementById("pieChart").getContext("2d");
         const pieChart = new Chart(pieChartCtx, { type: "pie", data: pieChartData });
 
+        // Create a line chart for each platform
         function createChart(platform, elementId) {
             const ctx = document.getElementById(elementId).getContext("2d");
             charts[platform] = new Chart(ctx, {
                 type: "line",
-                data: { labels: [], datasets: [{ label: `${platform} Earnings`, data: [], borderColor: "#03A9F4", fill: true }] },
-                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: `${platform} Earnings`,
+                        data: [],
+                        borderColor: colors[Object.keys(charts).length % colors.length],
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
             });
         }
 
-        Object.keys(earningsData).forEach(platform => createChart(platform, `${platform.toLowerCase()}Chart`));
-
+        // Update the pie chart with current data
         function updatePieChart() {
             pieChartData.labels = Object.keys(earningsData);
             pieChartData.datasets[0].data = Object.values(earningsData).map(
-                platformEarnings => platformEarnings.reduce((sum, entry) => sum + entry.amount, 0)
+                platformData => platformData.reduce((sum, entry) => sum + entry.amount, 0)
             );
             pieChart.update();
         }
 
+        // Update the total earnings display
         function updateTotalEarnings() {
             const total = Object.values(earningsData).flat().reduce((sum, entry) => sum + entry.amount, 0);
             document.getElementById("total-earnings").textContent = total.toFixed(3);
         }
 
+        // Update individual platform charts
         function updateChart(platform) {
             const chart = charts[platform];
             const data = earningsData[platform];
@@ -141,6 +159,7 @@
             chart.update();
         }
 
+        // Form submission handler
         document.getElementById("earnings-form").addEventListener("submit", function (e) {
             e.preventDefault();
             const date = document.getElementById("date").value;
@@ -160,6 +179,7 @@
             e.target.reset();
         });
 
+        // Delete all data
         document.getElementById("delete-btn").addEventListener("click", function () {
             if (confirm("Are you sure you want to delete all data?")) {
                 earningsData = { "Honeygain": [], "Pawns.app": [], "PacketStream": [], "PacketShare": [] };
@@ -174,6 +194,7 @@
             }
         });
 
+        // Dynamically add new platform
         document.getElementById("add-platform-btn").addEventListener("click", function () {
             const newPlatform = prompt("Enter the name of the new platform:");
             if (newPlatform && !earningsData[newPlatform]) {
@@ -187,6 +208,8 @@
             }
         });
 
+        // Initialize charts and data
+        Object.keys(earningsData).forEach(platform => createChart(platform, `${platform.toLowerCase()}Chart`));
         updateTotalEarnings();
         updatePieChart();
     </script>
