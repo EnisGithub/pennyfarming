@@ -70,7 +70,6 @@
 <body>
     <h1>Earnings Tracker</h1>
 
-    <!-- Form -->
     <form id="earnings-form">
         <label for="date">Date:</label>
         <input type="date" id="date" required>
@@ -106,7 +105,9 @@
     <div id="charts-container"></div>
 
     <script>
-        const DATA_URL = "data.json"; // JSON-Datei
+        const API_URL_LOAD = "/load";
+        const API_URL_SAVE = "/save";
+
         let earningsData = {};
         const colors = ["#4CAF50", "#FFC107", "#03A9F4", "#E91E63", "#9C27B0", "#FF5722"];
         const pieChartData = { labels: [], datasets: [{ data: [], backgroundColor: colors }] };
@@ -115,15 +116,19 @@
         const pieChart = new Chart(pieChartCtx, { type: "pie", data: pieChartData });
 
         async function fetchData() {
-            const response = await fetch(DATA_URL);
-            const { earnings, platforms } = await response.json();
-            earningsData = platforms.reduce((obj, platform) => ({ ...obj, [platform]: [] }), {});
-            earnings.forEach(({ platform, date, amount }) => {
-                if (!earningsData[platform]) earningsData[platform] = [];
-                earningsData[platform].push({ date, amount });
-            });
-            updateTable();
-            updateCharts();
+            const response = await fetch(API_URL_LOAD);
+            if (response.ok) {
+                const { earnings, platforms } = await response.json();
+                earningsData = platforms.reduce((obj, platform) => ({ ...obj, [platform]: [] }), {});
+                earnings.forEach(({ platform, date, amount }) => {
+                    if (!earningsData[platform]) earningsData[platform] = [];
+                    earningsData[platform].push({ date, amount });
+                });
+                updateTable();
+                updateCharts();
+            } else {
+                console.error("No data found");
+            }
         }
 
         async function saveData() {
@@ -131,12 +136,15 @@
                 entries.map(entry => ({ platform, date: entry.date, amount: entry.amount }))
             );
             const platforms = Object.keys(earningsData);
-            const response = await fetch(DATA_URL, {
+
+            const response = await fetch(API_URL_SAVE, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ earnings, platforms })
+                body: JSON.stringify({ earnings, platforms }),
             });
-            if (!response.ok) alert("Error saving data!");
+            if (!response.ok) {
+                alert("Error saving data!");
+            }
         }
 
         function updateTable() {
@@ -159,12 +167,13 @@
             pieChart.update();
         }
 
-        document.getElementById("earnings-form").addEventListener("submit", async function (e) {
+        document.getElementById("earnings-form").addEventListener("submit", function (e) {
             e.preventDefault();
             const date = document.getElementById("date").value;
             const platform = document.getElementById("platform").value;
             const amount = parseFloat(document.getElementById("amount").value);
-            if (!date || !platform || isNaN(amount)) return alert("Fill in all fields!");
+
+            if (!date || !platform || isNaN(amount)) return alert("Please fill in all fields!");
 
             if (!earningsData[platform]) earningsData[platform] = [];
             earningsData[platform].push({ date, amount });
@@ -173,15 +182,15 @@
             saveData();
         });
 
-        document.getElementById("add-platform-btn").addEventListener("click", async function () {
+        document.getElementById("add-platform-btn").addEventListener("click", function () {
             const newPlatform = prompt("Enter the name of the new platform:");
             if (!newPlatform || earningsData[newPlatform]) return alert("Invalid or existing platform!");
             earningsData[newPlatform] = [];
             saveData();
         });
 
-        document.getElementById("delete-btn").addEventListener("click", async function () {
-            if (!confirm("Delete all data?")) return;
+        document.getElementById("delete-btn").addEventListener("click", function () {
+            if (!confirm("Are you sure you want to delete all data?")) return;
             earningsData = {};
             updateTable();
             updateCharts();
