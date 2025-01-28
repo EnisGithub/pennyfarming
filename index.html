@@ -126,6 +126,7 @@
                 });
                 updateTable();
                 updateCharts();
+                populatePlatformSelect(); // Update Dropdown-Menü
             } else {
                 console.error("No data found");
             }
@@ -145,6 +146,17 @@
             if (!response.ok) {
                 alert("Error saving data!");
             }
+        }
+
+        function populatePlatformSelect() {
+            const platformSelect = document.getElementById("platform");
+            platformSelect.innerHTML = ""; // Alle Optionen löschen
+            Object.keys(earningsData).forEach(platform => {
+                const option = document.createElement("option");
+                option.value = platform;
+                option.textContent = platform;
+                platformSelect.appendChild(option);
+            });
         }
 
         function updateTable() {
@@ -186,6 +198,7 @@
             const newPlatform = prompt("Enter the name of the new platform:");
             if (!newPlatform || earningsData[newPlatform]) return alert("Invalid or existing platform!");
             earningsData[newPlatform] = [];
+            populatePlatformSelect(); // Plattform ins Dropdown-Menü einfügen
             saveData();
         });
 
@@ -194,6 +207,7 @@
             earningsData = {};
             updateTable();
             updateCharts();
+            populatePlatformSelect(); // Dropdown-Menü zurücksetzen
             saveData();
         });
 
